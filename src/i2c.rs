@@ -2,8 +2,10 @@
 
 use crate::LcdDisplay;
 use core::fmt::Debug;
-use embedded_hal::delay::DelayNs;
-use port_expander::{dev::pcf8574, mode::QuasiBidirectional, I2cBus, Pcf8574, Pcf8574a, Pin, PortMutex};
+use embedded_hal_async::delay::DelayNs;
+use port_expander::{
+    dev::pcf8574, mode::QuasiBidirectional, I2cBus, Pcf8574, Pcf8574a, Pin, PortMutex,
+};
 
 impl<'a, D, M, I2C> LcdDisplay<Pin<'a, QuasiBidirectional, M>, D>
 where

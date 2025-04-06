@@ -1,6 +1,6 @@
 use crate::Error;
-use embedded_hal::delay::DelayNs;
 use embedded_hal::digital::OutputPin;
+use embedded_hal_async::delay::DelayNs;
 
 #[repr(u8)]
 #[allow(dead_code)]
@@ -464,20 +464,20 @@ where
     ///     .with_reliable_init(10000)
     ///     .build();
     /// ```
-    pub fn with_reliable_init(mut self, delay_toggle: u32) -> Self {
+    pub async fn with_reliable_init(mut self, delay_toggle: u32) -> Self {
         if self.display_ctrl == Display::On as u8 {
             for _ in 0..3 {
-                self.delay.delay_us(delay_toggle);
-                self.display_off();
-                self.delay.delay_us(delay_toggle);
-                self.display_on();
+                self.delay.delay_us(delay_toggle).await;
+                self.display_off().await;
+                self.delay.delay_us(delay_toggle).await;
+                self.display_on().await;
             }
         } else {
             for _ in 0..3 {
-                self.delay.delay_us(delay_toggle);
-                self.display_on();
-                self.delay.delay_us(delay_toggle);
-                self.display_off();
+                self.delay.delay_us(delay_toggle).await;
+                self.display_on().await;
+                self.delay.delay_us(delay_toggle).await;
+                self.display_off().await;
             }
         }
 
@@ -516,8 +516,8 @@ where
     ///
     /// lcd.print("Test message!");
     /// ```
-    pub fn build(mut self) -> Self {
-        self.delay.delay_us(50000);
+    pub async fn build(mut self) -> Self {
+        self.delay.delay_us(50000).await;
 
         self.set(RS, false);
         self.set(EN, false);
@@ -530,39 +530,39 @@ where
             Mode::FourBits => {
                 // display function is four bit
                 self.update(0x03);
-                self.delay.delay_us(4500);
+                self.delay.delay_us(4500).await;
 
                 self.update(0x03);
-                self.delay.delay_us(4500);
+                self.delay.delay_us(4500).await;
 
                 self.update(0x03);
-                self.delay.delay_us(150);
+                self.delay.delay_us(150).await;
 
                 self.update(0x02);
             }
             Mode::EightBits => {
                 // display function is eight bit
                 self.command(Command::SetDisplayFunc as u8 | self.display_func);
-                self.delay.delay_us(4500);
+                self.delay.delay_us(4500).await;
 
                 self.command(Command::SetDisplayFunc as u8 | self.display_func);
-                self.delay.delay_us(150);
+                self.delay.delay_us(150).await;
 
                 self.command(Command::SetDisplayFunc as u8 | self.display_func);
             }
         }
 
         self.command(Command::SetDisplayFunc as u8 | self.display_func);
-        self.delay.delay_us(CMD_DELAY);
+        self.delay.delay_us(CMD_DELAY).await;
 
         self.command(Command::SetDisplayCtrl as u8 | self.display_ctrl);
-        self.delay.delay_us(CMD_DELAY);
+        self.delay.delay_us(CMD_DELAY).await;
 
         self.command(Command::SetDisplayMode as u8 | self.display_mode);
-        self.delay.delay_us(CMD_DELAY);
+        self.delay.delay_us(CMD_DELAY).await;
 
-        self.clear();
-        self.home();
+        self.clear().await;
+        self.home().await;
 
         // set an error code display is misconfigured
         self.validate();
@@ -581,7 +581,7 @@ where
     ///
     /// lcd.set_position(col,row);
     /// ```
-    pub fn set_position(&mut self, col: u8, mut row: u8) {
+    pub async fn set_position(&mut self, col: u8, mut row: u8) {
         let max_lines = 4;
 
         let num_lines = match self.lines() {
@@ -602,7 +602,7 @@ where
 
         pos += self.offsets[row as usize];
         self.command(Command::SetDDRAMAddr as u8 | pos);
-        self.delay.delay_us(CMD_DELAY);
+        self.delay.delay_us(CMD_DELAY).await;
     }
 
     /// Scroll the display right or left.
@@ -617,11 +617,11 @@ where
     ///
     /// lcd.set_scroll(direction,distance);
     /// ```
-    pub fn set_scroll(&mut self, direction: Scroll, distance: u8) {
+    pub async fn set_scroll(&mut self, direction: Scroll, distance: u8) {
         let command = Command::CursorShift as u8 | Move::Display as u8 | direction as u8;
         for _ in 0..distance {
             self.command(command);
-            self.delay.delay_us(CMD_DELAY);
+            self.delay.delay_us(CMD_DELAY).await;
         }
     }
 
@@ -634,13 +634,13 @@ where
     ///
     /// lcd.set_layout(Layout::LeftToRight);
     /// ```
-    pub fn set_layout(&mut self, layout: Layout) {
+    pub async fn set_layout(&mut self, layout: Layout) {
         match layout {
             Layout::LeftToRight => self.display_mode |= Layout::LeftToRight as u8,
             Layout::RightToLeft => self.display_mode &= !(Layout::LeftToRight as u8),
         }
         self.command(Command::SetDisplayMode as u8 | self.display_mode);
-        self.delay.delay_us(CMD_DELAY);
+        self.delay.delay_us(CMD_DELAY).await;
     }
 
     /// Turn the display on or off.
@@ -652,13 +652,13 @@ where
     ///
     /// lcd.set_display(Display::Off);
     /// ```
-    pub fn set_display(&mut self, display: Display) {
+    pub async fn set_display(&mut self, display: Display) {
         match display {
             Display::On => self.display_ctrl |= Display::On as u8,
             Display::Off => self.display_ctrl &= !(Display::On as u8),
         }
         self.command(Command::SetDisplayCtrl as u8 | self.display_ctrl);
-        self.delay.delay_us(CMD_DELAY);
+        self.delay.delay_us(CMD_DELAY).await;
     }
 
     /// Turn the cursor on or off.
@@ -670,13 +670,13 @@ where
     ///
     /// lcd.set_cursor(Cursor::On);
     /// ```
-    pub fn set_cursor(&mut self, cursor: Cursor) {
+    pub async fn set_cursor(&mut self, cursor: Cursor) {
         match cursor {
             Cursor::On => self.display_ctrl |= Cursor::On as u8,
             Cursor::Off => self.display_ctrl &= !(Cursor::On as u8),
         }
         self.command(Command::SetDisplayCtrl as u8 | self.display_ctrl);
-        self.delay.delay_us(CMD_DELAY);
+        self.delay.delay_us(CMD_DELAY).await;
     }
 
     /// Make the background of the cursor blink or stop blinking.
@@ -688,13 +688,13 @@ where
     ///
     /// lcd.set_blink(Blink::On);
     /// ```
-    pub fn set_blink(&mut self, blink: Blink) {
+    pub async fn set_blink(&mut self, blink: Blink) {
         match blink {
             Blink::On => self.display_ctrl |= Blink::On as u8,
             Blink::Off => self.display_ctrl &= !(Blink::On as u8),
         }
         self.command(Command::SetDisplayCtrl as u8 | self.display_ctrl);
-        self.delay.delay_us(CMD_DELAY);
+        self.delay.delay_us(CMD_DELAY).await;
     }
 
     /// Enable or disable LCD backlight
@@ -714,13 +714,13 @@ where
     ///
     /// lcd.set_autoscroll(AutoScroll::On);
     /// ```
-    pub fn set_autoscroll(&mut self, scroll: AutoScroll) {
+    pub async fn set_autoscroll(&mut self, scroll: AutoScroll) {
         match scroll {
             AutoScroll::On => self.display_mode |= AutoScroll::On as u8,
             AutoScroll::Off => self.display_mode &= !(AutoScroll::On as u8),
         }
         self.command(Command::SetDisplayMode as u8 | self.display_mode);
-        self.delay.delay_us(CMD_DELAY);
+        self.delay.delay_us(CMD_DELAY).await;
     }
 
     /// Add a new character map to the LCD memory (CGRAM) at a particular location.
@@ -749,11 +749,11 @@ where
     /// lcd.home();
     /// lcd.write(0u8);
     /// ```
-    pub fn set_character(&mut self, mut location: u8, map: [u8; 8]) {
+    pub async fn set_character(&mut self, mut location: u8, map: [u8; 8]) {
         location &= 0x7; // limit to locations 0-7
         self.command(Command::SetCGramAddr as u8 | (location << 3));
         for ch in map.iter() {
-            self.write(*ch);
+            self.write(*ch).await;
         }
     }
 
@@ -765,9 +765,9 @@ where
     /// let mut lcd: LcdDisplay<_,_> = ...;
     /// lcd.clear();
     /// ```
-    pub fn clear(&mut self) {
+    pub async fn clear(&mut self) {
         self.command(Command::ClearDisplay as u8);
-        self.delay.delay_us(CMD_DELAY);
+        self.delay.delay_us(CMD_DELAY).await;
     }
 
     /// Move the cursor to the home position.
@@ -778,9 +778,9 @@ where
     /// let mut lcd: LcdDisplay<_,_> = ...;
     /// lcd.home(); // cursor should be top-left
     /// ```
-    pub fn home(&mut self) {
+    pub async fn home(&mut self) {
         self.command(Command::ReturnHome as u8);
-        self.delay.delay_us(CMD_DELAY);
+        self.delay.delay_us(CMD_DELAY).await;
     }
 
     /// Scroll the display to the right. (See [set_scroll][LcdDisplay::set_scroll])
@@ -791,8 +791,8 @@ where
     /// let mut lcd: LcdDisplay<_,_> = ...;
     /// lcd.scroll_right(2); // display scrolls 2 positions to the right.
     /// ```
-    pub fn scroll_right(&mut self, value: u8) {
-        self.set_scroll(Scroll::Right, value);
+    pub async fn scroll_right(&mut self, value: u8) {
+        self.set_scroll(Scroll::Right, value).await;
     }
 
     /// Scroll the display to the left. (See [set_scroll][LcdDisplay::set_scroll])
@@ -803,8 +803,8 @@ where
     /// let mut lcd: LcdDisplay<_,_> = ...;
     /// lcd.scroll_left(2); // display scrolls 2 positions to the left.
     /// ```
-    pub fn scroll_left(&mut self, value: u8) {
-        self.set_scroll(Scroll::Left, value);
+    pub async fn scroll_left(&mut self, value: u8) {
+        self.set_scroll(Scroll::Left, value).await;
     }
 
     /// Set the text direction layout left-to-right. (See [set_layout][LcdDisplay::set_layout])
@@ -815,8 +815,8 @@ where
     /// let mut lcd: LcdDisplay<_,_> = ...;
     /// lcd.layout_left_to_right();
     /// ```
-    pub fn layout_left_to_right(&mut self) {
-        self.set_layout(Layout::LeftToRight);
+    pub async fn layout_left_to_right(&mut self) {
+        self.set_layout(Layout::LeftToRight).await;
     }
 
     /// Set the text direction layout right-to-left. (See [set_layout][LcdDisplay::set_layout])
@@ -827,8 +827,8 @@ where
     /// let mut lcd: LcdDisplay<_,_> = ...;
     /// lcd.layout_right_to_left();
     /// ```
-    pub fn layout_right_to_left(&mut self) {
-        self.set_layout(Layout::RightToLeft);
+    pub async fn layout_right_to_left(&mut self) {
+        self.set_layout(Layout::RightToLeft).await;
     }
 
     /// Turn the display on. (See [set_display][LcdDisplay::set_display])
@@ -839,8 +839,8 @@ where
     /// let mut lcd: LcdDisplay<_,_> = ...;
     /// lcd.display_on();
     /// ```
-    pub fn display_on(&mut self) {
-        self.set_display(Display::On);
+    pub async fn display_on(&mut self) {
+        self.set_display(Display::On).await;
     }
 
     /// Turn the display off. (See [set_display][LcdDisplay::set_display])
@@ -851,8 +851,8 @@ where
     /// let mut lcd: LcdDisplay<_,_> = ...;
     /// lcd.display_off();
     /// ```
-    pub fn display_off(&mut self) {
-        self.set_display(Display::Off);
+    pub async fn display_off(&mut self) {
+        self.set_display(Display::Off).await;
     }
 
     /// Turn the cursor on. (See [set_cursor][LcdDisplay::set_cursor])
@@ -863,8 +863,8 @@ where
     /// let mut lcd: LcdDisplay<_,_> = ...;
     /// lcd.cursor_on();
     /// ```
-    pub fn cursor_on(&mut self) {
-        self.set_cursor(Cursor::On);
+    pub async fn cursor_on(&mut self) {
+        self.set_cursor(Cursor::On).await;
     }
 
     /// Turn the cursor off. (See [set_cursor][LcdDisplay::set_cursor])
@@ -875,8 +875,8 @@ where
     /// let mut lcd: LcdDisplay<_,_> = ...;
     /// lcd.cursor_off();
     /// ```
-    pub fn cursor_off(&mut self) {
-        self.set_cursor(Cursor::Off);
+    pub async fn cursor_off(&mut self) {
+        self.set_cursor(Cursor::Off).await;
     }
 
     /// Set the background of the cursor to blink. (See [set_blink][LcdDisplay::set_blink])
@@ -887,8 +887,8 @@ where
     /// let mut lcd: LcdDisplay<_,_> = ...;
     /// lcd.blink_on();
     /// ```
-    pub fn blink_on(&mut self) {
-        self.set_blink(Blink::On);
+    pub async fn blink_on(&mut self) {
+        self.set_blink(Blink::On).await;
     }
 
     /// Set the background of the cursor to stop blinking. (See [set_blink][LcdDisplay::set_blink])
@@ -899,8 +899,8 @@ where
     /// let mut lcd: LcdDisplay<_,_> = ...;
     /// lcd.blink_off();
     /// ```
-    pub fn blink_off(&mut self) {
-        self.set_blink(Blink::Off);
+    pub async fn blink_off(&mut self) {
+        self.set_blink(Blink::Off).await;
     }
 
     /// Turn backlight on
@@ -925,8 +925,8 @@ where
     /// let mut lcd: LcdDisplay<_,_> = ...;
     /// lcd.autoscroll_on();
     /// ```
-    pub fn autoscroll_on(&mut self) {
-        self.set_autoscroll(AutoScroll::On);
+    pub async fn autoscroll_on(&mut self) {
+        self.set_autoscroll(AutoScroll::On).await;
     }
 
     /// Turn autoscroll off. (See [set_autoscroll][LcdDisplay::set_autoscroll])
@@ -937,8 +937,8 @@ where
     /// let mut lcd: LcdDisplay<_,_> = ...;
     /// lcd.autoscroll_off();
     /// ```
-    pub fn autoscroll_off(&mut self) {
-        self.set_autoscroll(AutoScroll::Off);
+    pub async fn autoscroll_off(&mut self) {
+        self.set_autoscroll(AutoScroll::Off).await;
     }
 
     /// Get the current bus mode. (See [with_half_bus][LcdDisplay::with_half_bus] and [with_full_bus][LcdDisplay::with_full_bus])
@@ -1077,9 +1077,9 @@ where
     /// let mut lcd: LcdDisplay<_,_> = ...;
     /// lcd.print("TEST MESSAGE");
     /// ```
-    pub fn print(&mut self, text: &str) {
+    pub async fn print(&mut self, text: &str) {
         for ch in text.chars() {
-            self.write(ch as u8);
+            self.write(ch as u8).await;
         }
     }
 
@@ -1091,8 +1091,8 @@ where
     /// let mut lcd: LcdDisplay<_,_> = ...;
     /// lcd.write('A' as u8);
     /// ```
-    pub fn write(&mut self, value: u8) {
-        self.delay.delay_us(CHR_DELAY);
+    pub async fn write(&mut self, value: u8) {
+        self.delay.delay_us(CHR_DELAY).await;
         self.send(value, true);
     }
 
@@ -1231,39 +1231,5 @@ where
         } {
             self.code = Error::InvalidMode;
         }
-    }
-}
-
-/// Implementation of ufmt::uWrite
-///
-/// This trait allows us to use the uwrite/uwriteln macros from ufmt
-/// to format arbitrary arguments (that have the appropriate uDisplay or uDebug traits
-/// implemented) into a string to display on the lcd screen.
-///
-/// # Examples
-///
-/// ```
-/// let mut lcd: LcdDisplay<_,_> = ...;
-///
-/// let count = 3;
-/// uwriteln!(&mut lcd, "COUNT IS: {}",count);
-/// ```
-///
-#[cfg(feature = "ufmt")]
-impl<T, D> ufmt::uWrite for LcdDisplay<T, D>
-where
-    T: OutputPin<Error = core::convert::Infallible> + Sized,
-    D: DelayNs + Sized,
-{
-    type Error = core::convert::Infallible;
-
-    fn write_str(&mut self, s: &str) -> Result<(), Self::Error> {
-        self.print(s);
-        Ok(())
-    }
-
-    fn write_char(&mut self, c: char) -> Result<(), Self::Error> {
-        self.write(c as u8);
-        Ok(())
     }
 }
